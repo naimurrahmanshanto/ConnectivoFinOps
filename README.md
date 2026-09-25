@@ -60,20 +60,7 @@ Your actual passwords are **not** in any file here — that's deliberate, so
 they never end up in Git history even if the repo is public. Instead they
 live only in Netlify's own environment variable store.
 
-Go to **Site settings → Environment variables** on your Netlify site and add:
 
-| Key | Value |
-|---|---|
-| `SESSION_SECRET` | any long random string — generate one with `openssl rand -hex 32`, or just mash the keyboard for 40+ characters |
-| `AUTH_SHANTO_HASH` | `2e996ed052631245eca33de55774b81b:b9e939a8952e74df26c40b4f7c133802e3d58951b00efd01d42e17932065e7dfa441a194e50533ddbf4fbb741f2b35d741d28f4e6934926c400a722ce7211fc6` |
-| `AUTH_SHOMVOB_HASH` | `1ea3dd2e725c8913f0d494c9d310b31d:b02ab394008ad1e97ea374c6c451c5ef058091068a91da8af1a4e3080beba2e54dffcbf2c3d9cdd55fb983f6036462ae2679534d16a0736d6bce9f749f8835c5` |
-| `AUTH_SHOIKOT_HASH` | `740d7edb3690e1ac5c3a93cc4f3fa5f9:688a9e98f1aaed3e8303877b1b62edc0d4e500138a53b2c8622612c41f2fe650026da99ddffe279457ae890d5cb36bb63bb0438b57fccf5175e46cb53fcea5f4` |
-
-Those three hash values correspond exactly to the passwords you gave me
-(Shanto/Eminem02, Shomvob/Connectivoceo2026, Shoikot/Connectivoadm2026) —
-you don't need to regenerate anything to get started. **After adding the
-variables, trigger a new deploy** (Deploys → Trigger deploy) so the
-functions pick them up.
 
 ### Changing a password later
 
