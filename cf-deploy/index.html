@@ -607,7 +607,7 @@ function renderShell(){
   $$('.navlink[data-nav]').forEach(b=> b.onclick = ()=>{ location.hash = b.dataset.nav; $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('show'); });
   const signOut = $('#signOutBtn');
   if(signOut) signOut.onclick = async ()=>{
-    if(S.mode==='netlify'){ try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){} }
+    if(S.mode==='server'){ try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){} }
     try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){}
     location.hash=''; location.reload();
   };
@@ -1589,8 +1589,8 @@ function renderUsers(){
   $('#content').innerHTML = `
     <div class="lockbar" style="background:var(--info-bg); color:var(--primary-700);">${
       S.mode==='claude' ? "Sign-in uses fixed company credentials, checked in this page. Suspending an account here blocks that person's access immediately, on top of claude.ai's own sharing permissions." :
-      S.mode==='netlify' ? "Sign-in is verified server-side by this site's own Netlify Functions. Suspending an account here blocks that person's access immediately, even with a valid password." :
-      "Running without the Netlify Functions backend deployed: sign-in still uses the same fixed credentials, but data is only stored in this browser."}</div>
+      S.mode==='server' ? "Sign-in is verified server-side by this site's own backend. Suspending an account here blocks that person's access immediately, even with a valid password." :
+      "Running without the server backend deployed: sign-in still uses the same fixed credentials, but data is only stored in this browser."}</div>
     <div class="card">
       <div class="card-pad viewport-narrow" style="padding-top:6px;">
         <table><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Last Sign-in</th><th></th></tr></thead><tbody>
@@ -1634,7 +1634,7 @@ function renderDevConsole(){
   };
   $('#content').innerHTML = `
     <div class="grid grid-4" style="margin-bottom:16px;">
-      <div class="card metric"><div class="label">Runtime Mode</div><div class="val num" style="font-size:16px;">${S.mode==='claude'?'claude.ai (shared db)':S.mode==='netlify'?'Netlify Functions + Blobs':'Standalone (local storage)'}</div></div>
+      <div class="card metric"><div class="label">Runtime Mode</div><div class="val num" style="font-size:16px;">${S.mode==='claude'?'claude.ai (shared db)':S.mode==='server'?'Live server backend':'Standalone (local storage)'}</div></div>
       ${Object.entries(counts).map(([k,v])=>`<div class="card metric"><div class="label">${k}</div><div class="val num">${v}</div></div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:16px;">
@@ -1931,7 +1931,7 @@ async function uploadAttachment(file, transactionId, voucher){
     });
     return res.id;
   }
-  if(S.mode==='netlify'){
+  if(S.mode==='server'){
     const NETLIFY_ATTACHMENT_CAP = 4*1024*1024;
     if(file.size > NETLIFY_ATTACHMENT_CAP) throw new Error('Files over 4 MB are not supported. Please attach a smaller file.');
     const dataUrl = await fileToBase64(file);
@@ -1969,7 +1969,7 @@ async function uploadAttachment(file, transactionId, voucher){
 
 function attachmentHref(d){
   if(d.localData) return d.localData;
-  if(S.mode==='netlify') return '/api/file?id='+encodeURIComponent(d.id);
+  if(S.mode==='server') return '/api/file?id='+encodeURIComponent(d.id);
   return '/_blob/'+d.id;
 }
 function attachmentListHtml(docs){
@@ -2171,7 +2171,9 @@ function createNetlifyDb(){
     },
   };
 }
-/** Probes for the Netlify Functions backend from this same package. A
+/** Probes for a server backend (Netlify Functions, Cloudflare Pages
+ * Functions, or any host serving the same /api/* contract) deployed
+ * alongside this same package. A
  * plain static deploy (no functions/env vars configured) will 404 here
  * and the app quietly falls back to local-storage mode instead of
  * breaking — same file works either way. */
@@ -2258,7 +2260,8 @@ function gateShell(inner){
     </div>`;
 }
 
-/** serverMode true = this deploy has a real Netlify Functions backend, so
+/** serverMode true = this deploy has a real server backend (Netlify or
+ * Cloudflare, both expose the same /api/* contract), so
  * the password check happens server-side via /api/auth/login and this
  * page never sees the ACCOUNTS table or password hashes at all. false =
  * the claude.ai artifact or a plain static (no-backend) deploy, where the
@@ -2275,7 +2278,7 @@ function renderLoginGate(onEnter, serverMode){
       ? "Your password is checked on Connectivo's own server and never stored in this page — this is real, independent security."
       : S.mode==='claude'
         ? "This copy is also protected by claude.ai's own sharing permissions — only people you've shared this link with can open it at all."
-        : "Running without the Netlify Functions backend deployed: this sign-in has no server behind it, so treat it as a basic deterrent, not real security."}</p>
+        : "Running without the server backend deployed: this sign-in has no server behind it, so treat it as a basic deterrent, not real security."}</p>
   `);
   const submit = async ()=>{
     const user = $('#lg_user').value, pass = $('#lg_pass').value;
@@ -2317,7 +2320,7 @@ function renderLoginGate(onEnter, serverMode){
 /* ================= INIT ================= */
 async function init(){
   // Connect to storage first — claude.ai's shared db, this package's own
-  // Netlify Functions + Blobs backend if it's deployed and reachable, or
+  // any compatible server backend (Netlify or Cloudflare) if it's deployed and reachable, or
   // the local-storage fallback as a last resort. Independent of login.
   let dbCap = null;
   if(window.claude){
@@ -2325,7 +2328,7 @@ async function init(){
     try{ dbCap = await claude.use('db'); }catch(e){}
   }
   if(dbCap){ S.mode = 'claude'; S.db = dbCap; }
-  else if(await detectNetlifyFunctions()){ S.mode = 'netlify'; S.db = createNetlifyDb(); }
+  else if(await detectNetlifyFunctions()){ S.mode = 'server'; S.db = createNetlifyDb(); }
   else { S.mode = 'local'; S.db = createLocalDb(); }
 
   const afterLogin = async ()=>{
@@ -2357,7 +2360,7 @@ async function init(){
     renderRoute();
   };
 
-  if(S.mode==='netlify'){
+  if(S.mode==='server'){
     // The httpOnly session cookie itself is the "remember me" — no
     // sessionStorage needed, and it survives a full reload or new tab
     // until it actually expires (8 hours) or is explicitly signed out.

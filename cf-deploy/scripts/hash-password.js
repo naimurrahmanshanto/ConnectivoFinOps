@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+// Run this locally whenever you need to set or change a login password:
+//   node scripts/hash-password.js "TheNewPassword"
+// It prints a "iterations:saltHex:hashHex" string — paste that (the whole
+// string) as the value of the matching AUTH_..._HASH variable in the
+// Cloudflare Pages dashboard. Needs nothing but Node itself (no npm install)
+// — the actual app verifies this same PBKDF2 format using the browser-
+// standard Web Crypto API, which Node's crypto.pbkdf2Sync matches exactly.
+'use strict';
+const crypto = require('crypto');
+
+const password = process.argv[2];
+if (!password) {
+  console.error('Usage: node scripts/hash-password.js "YourPassword"');
+  process.exit(1);
+}
+
+const ITERATIONS = 210000;
+const salt = crypto.randomBytes(16);
+const derived = crypto.pbkdf2Sync(password, salt, ITERATIONS, 32, 'sha256');
+console.log(`${ITERATIONS}:${salt.toString('hex')}:${derived.toString('hex')}`);
